@@ -61,17 +61,33 @@ get_target_user() {
 
 install_brave_nightly() {
   echo "=== Installing Brave Nightly browser ==="
+
   dnf install -y dnf-plugins-core
-  dnf config-manager addrepo \
-    --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo
+
+  # If repo file already exists, don't add it again.
+  if [[ -f /etc/yum.repos.d/brave-browser-nightly.repo ]]; then
+    echo "Brave Nightly repo already present; skipping addrepo."
+  else
+    dnf config-manager addrepo \
+      --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo
+  fi
+
   dnf install -y brave-browser-nightly
   echo "Brave Nightly installed (command: brave-browser-nightly)."
 }
 
 install_dropbox() {
-  echo "=== Installing Dropbox client ==="
-  # Fedora ships nautilus-dropbox, which pulls in the proprietary Dropbox client.[web:16]
+  echo "=== Installing Dropbox client (via RPM Fusion nonfree) ==="
+
+  # Enable RPM Fusion free + nonfree so nautilus-dropbox is available.[web:176]
+  dnf install -y \
+    "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
+    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+
+  echo
+  echo "Installing nautilus-dropbox from RPM Fusion nonfree..."
   dnf install -y nautilus-dropbox
+
   echo
   echo "Dropbox installed (package: nautilus-dropbox)."
   echo "On first run, it will open a browser to link your account."
@@ -79,9 +95,17 @@ install_dropbox() {
 
 install_spotify() {
   echo "=== Installing Spotify desktop client (Negativo17 repo) ==="
+
   dnf install -y dnf-plugins-core
-  dnf config-manager addrepo \
-    --from-repofile=https://negativo17.org/repos/fedora-spotify.repo
+
+  # Add Negativo17 Spotify repo if not present.[web:114]
+  if [[ -f /etc/yum.repos.d/fedora-spotify.repo ]]; then
+    echo "Spotify repo already present; skipping addrepo."
+  else
+    dnf config-manager addrepo \
+      --from-repofile=https://negativo17.org/repos/fedora-spotify.repo
+  fi
+
   dnf install -y spotify-client
   echo "Spotify client installed (command: spotify)."
 }
@@ -124,36 +148,41 @@ echo "Make sure ${LOCAL_BIN_DIR} is in your PATH."
 }
 
 install_lotion_for_user() {
-  echo "=== Installing Lotion (Notion for Linux) for the invoking user ==="
+  echo "=== Installing Lotion (Notion for Linux) (latest RPM release) ==="
 
-  local target_user
-  target_user="$(get_target_user)"
+  # Lotion is distributed as .rpm packages under GitHub Releases; we fetch latest via API.[web:119][web:202]
+  dnf install -y jq curl
 
-  if [[ -z "$target_user" ]]; then
-    echo "Cannot determine target user (SUDO_USER is empty or root)."
-    echo "Please run this script via sudo from your normal user to install Lotion."
+  local api_url="https://api.github.com/repos/puneetsl/lotion/releases/latest"
+  local tmp_dir rpm_url rpm_name rpm_path
+
+  echo "Querying GitHub for latest Lotion release..."
+  rpm_url="$(
+    curl -fsSL "$api_url" \
+      | jq -r ".assets[] | select(.name | endswith(\".x86_64.rpm\")) | .browser_download_url" || true
+  )"
+
+  if [[ -z "$rpm_url" || "$rpm_url" == "null" ]]; then
+    echo "Failed to determine latest Lotion .x86_64.rpm from GitHub API:"
+    echo "  $api_url"
+    echo "Check that the project still publishes RPM assets."
     return 1
   fi
 
-  sudo -u "$target_user" bash -c '
-set -euo pipefail
+  rpm_name="$(basename "$rpm_url")"
+  tmp_dir="$(mktemp -d)"
+  rpm_path="${tmp_dir}/${rpm_name}"
 
-TMP_DIR="$(mktemp -d)"
-cd "$TMP_DIR"
+  echo "Downloading ${rpm_name} from ${rpm_url} ..."
+  curl -fL "$rpm_url" -o "$rpm_path"
 
-echo "Downloading Lotion setup.sh..."
-curl -s https://raw.githubusercontent.com/puneetsl/lotion/master/setup.sh > setup.sh
+  echo "Installing ${rpm_name} via dnf..."
+  dnf install -y "$rpm_path"
 
-chmod +x setup.sh
+  rm -rf "$tmp_dir"
 
-echo
-echo "Running Lotion setup in web mode (always latest Notion web client)..."
-./setup.sh web
-
-echo
-echo "Lotion installation (web variant) completed for user ${USER}."
-rm -rf "$TMP_DIR"
-'
+  echo
+  echo "Lotion installed/updated from latest RPM release."
 }
 
 post_summary() {
@@ -162,11 +191,11 @@ post_summary() {
 Desktop applications setup finished.
 
 Installed (depending on your choices):
-  - Brave Nightly (brave-browser-nightly) via Brave nightly repo.[web:11][web:121]
-  - Dropbox client (nautilus-dropbox) from Fedora repos.[web:16][web:122]
-  - Spotify desktop client (spotify-client) from Negativo17 repo.[web:114][web:117]
-  - JetBrains Toolbox for your user (~/.local/share/JetBrains/Toolbox).[web:13][web:118]
-  - Lotion (Notion for Linux, web variant) for your user.[web:119]
+  - Brave Nightly (brave-browser-nightly) via Brave nightly repo.
+  - Dropbox client (nautilus-dropbox) from RPM Fusion nonfree.
+  - Spotify desktop client (spotify-client) from Negativo17 repo.
+  - JetBrains Toolbox for your user (~/.local/share/JetBrains/Toolbox).
+  - Lotion (Notion for Linux) from the latest GitHub RPM release.
 
 EOF
 }
@@ -194,7 +223,7 @@ run() {
     install_jetbrains_toolbox_for_user || true
   fi
 
-  if confirm_block "Install Lotion (Notion for Linux) for the invoking user?"; then
+  if confirm_block "Install Lotion (Notion for Linux) from latest RPM release?"; then
     install_lotion_for_user || true
   fi
 
@@ -214,4 +243,5 @@ main() {
 }
 
 main "$@"
+
 
