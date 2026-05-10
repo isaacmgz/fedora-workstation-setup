@@ -27,8 +27,9 @@ check_os() {
     sleep 5
   fi
 
-  if [[ "${VERSION_ID:-}" != "43" ]]; then
-    echo "Warning: This script was written for Fedora 43, but VERSION_ID='${VERSION_ID:-unknown}'."
+  # Support Fedora 43 and 44 releases
+  if ! [[ "${VERSION_ID:-}" =~ ^(43|44)$ ]]; then
+    echo "Warning: This script was written for Fedora 43/44, but VERSION_ID='${VERSION_ID:-unknown}'."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
@@ -62,17 +63,19 @@ get_target_user() {
 install_brave_nightly() {
   echo "=== Installing Brave Nightly browser ==="
 
-  dnf install -y dnf-plugins-core
+  dnf install -y dnf-plugins-core || true
 
   # If repo file already exists, don't add it again.
   if [[ -f /etc/yum.repos.d/brave-browser-nightly.repo ]]; then
     echo "Brave Nightly repo already present; skipping addrepo."
   else
-    dnf config-manager addrepo \
-      --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo
+    if ! dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo; then
+      echo "Warning: failed to add Brave nightly repo; skipping brave install."
+      return 1
+    fi
   fi
 
-  dnf install -y brave-browser-nightly
+  dnf install -y brave-browser-nightly || { echo "Failed to install brave-browser-nightly via dnf"; return 1; }
   echo "Brave Nightly installed (command: brave-browser-nightly)."
 }
 
@@ -82,11 +85,14 @@ install_dropbox() {
   # Enable RPM Fusion free + nonfree so nautilus-dropbox is available.[web:176]
   dnf install -y \
     "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
-    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" || true
 
   echo
   echo "Installing nautilus-dropbox from RPM Fusion nonfree..."
-  dnf install -y nautilus-dropbox
+  if ! dnf install -y nautilus-dropbox; then
+    echo "Failed to install nautilus-dropbox via dnf; you may need to install Dropbox manually or enable the correct repository."
+    return 1
+  fi
 
   echo
   echo "Dropbox installed (package: nautilus-dropbox)."
@@ -96,17 +102,22 @@ install_dropbox() {
 install_spotify() {
   echo "=== Installing Spotify desktop client (Negativo17 repo) ==="
 
-  dnf install -y dnf-plugins-core
+  dnf install -y dnf-plugins-core || true
 
   # Add Negativo17 Spotify repo if not present.[web:114]
   if [[ -f /etc/yum.repos.d/fedora-spotify.repo ]]; then
     echo "Spotify repo already present; skipping addrepo."
   else
-    dnf config-manager addrepo \
-      --from-repofile=https://negativo17.org/repos/fedora-spotify.repo
+    if ! dnf config-manager addrepo --from-repofile=https://negativo17.org/repos/fedora-spotify.repo; then
+      echo "Warning: failed to add Spotify repo; skipping spotify install."
+      return 1
+    fi
   fi
 
-  dnf install -y spotify-client
+  if ! dnf install -y spotify-client; then
+    echo "Failed to install spotify-client via dnf; try installing via flatpak or the vendor instructions."
+    return 1
+  fi
   echo "Spotify client installed (command: spotify)."
 }
 
@@ -122,7 +133,7 @@ install_jetbrains_toolbox_for_user() {
     return 1
   fi
 
-  dnf install -y jq curl
+  dnf install -y jq curl || true
 
   sudo -u "$target_user" bash -c '
 set -euo pipefail
@@ -151,7 +162,7 @@ install_lotion_for_user() {
   echo "=== Installing Lotion (Notion for Linux) (latest RPM release) ==="
 
   # Lotion is distributed as .rpm packages under GitHub Releases; we fetch latest via API.[web:119][web:202]
-  dnf install -y jq curl
+  dnf install -y jq curl || true
 
   local api_url="https://api.github.com/repos/puneetsl/lotion/releases/latest"
   local tmp_dir rpm_url rpm_name rpm_path
@@ -243,5 +254,4 @@ main() {
 }
 
 main "$@"
-
 

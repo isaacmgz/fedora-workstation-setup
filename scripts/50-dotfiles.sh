@@ -33,8 +33,9 @@ check_os() {
     sleep 5
   fi
 
-  if [[ "${VERSION_ID:-}" != "43" ]]; then
-    echo "Warning: This script was written for Fedora 43, but VERSION_ID='${VERSION_ID:-unknown}'."
+  # Support Fedora 43 and 44 releases
+  if ! [[ "${VERSION_ID:-}" =~ ^(43|44)$ ]]; then
+    echo "Warning: This script was written for Fedora 43/44, but VERSION_ID='${VERSION_ID:-unknown}'."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
@@ -373,4 +374,3 @@ main() {
 }
 
 main "$@"
-

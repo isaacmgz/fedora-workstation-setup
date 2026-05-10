@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Konsole Tiler Helper
+Comment=Helper KWin script: open Konsole and focus windows directionally
+Type=Service
+X-KDE-PluginInfo-Name=konsoletiler
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Author=Assistant
+X-KDE-PluginInfo-Email=assistant@example.com
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-Website=https://example.local/konsole-tiler
+X-KDE-PluginInfo-Enabled=true
+X-KDE-ParentComponents=konsoletiler

@@ -97,6 +97,66 @@ sudo ./scripts/run.sh dotfiles    # 50-dotfiles.sh
 
 Each script is **interactive by block** (not per‑package). You’ll be asked before major sections (e.g. “Install Podman and container tooling?”).
 
+## Guía segura para ejecutar todos los scripts (recomendado)
+
+Este proyecto ahora incluye varios scripts adicionales y helpers (tweaks y configuración de Konsole/Bismuth). Abajo tenés una guía práctica, paso a paso, para ejecutar todo de forma segura en una máquina Fedora 44.
+
+Precauciones antes de empezar
+- Hacé un snapshot o usá una VM (muy recomendado).
+- Asegurate de tener conexión a Internet y espacio en disco suficiente.
+- Confirmá que NO estás en Fedora Silverblue / rpm-ostree (los scripts usan dnf y no son para rpm-ostree).
+- Si usás KDE/Plasma en Wayland (como en tu caso), algunos cambios de KWin requieren re-login.
+
+Comprobaciones rápidas (recomendado)
+- Hacé ejecutables los scripts:
+  chmod +x scripts/*.sh ci/run-dry-checks.sh
+- Ejecutá un chequeo rápido (no requiere root) que valida sintaxis y hace un dry-run seguro:
+  ./ci/run-dry-checks.sh
+  - Esto lanza `bash -n` sobre los scripts y ejecuta un dry-run del script de tweaks en modo no privilegiado.
+
+Orden recomendado de ejecución (ejecución real)
+1) Actualizar sistema (siempre primero)
+   sudo ./scripts/run.sh update
+
+2) Herramientas core de desarrollo
+   sudo ./scripts/run.sh core
+
+3) Contenedores y Kubernetes (Podman, kubectl, minikube)
+   sudo ./scripts/run.sh containers
+
+4) Virtualización (KVM / libvirt)
+   sudo ./scripts/run.sh virt
+
+5) Aplicaciones de escritorio (Brave, Dropbox, Spotify, Toolbox, Lotion)
+   sudo ./scripts/run.sh desktop
+
+6) Dotfiles y configuración de usuario (Zsh, Neovim, Git)
+   sudo ./scripts/run.sh dotfiles
+
+7) Tweaks de estación de trabajo (opcional, incluye Flatpak, fuentes, tuned, journald)
+   - Verificá con un dry-run primero (no requiere sudo si usás el modo de prueba):
+     SKIP_ROOT_CHECK=1 SKIP_OS_RELEASE=1 DRY_RUN=1 AUTO_YES=1 ./scripts/60-workstation-tweaks.sh
+   - Ejecutá real (con sudo) cuando estés listo:
+     sudo ./scripts/60-workstation-tweaks.sh
+
+8) Configuración de Konsole y Bismuth (tiling, atajos, Monokai)
+   - Probar en dry-run:
+     sudo ./scripts/70-konsole-bismuth.sh --dry-run
+   - Ejecutar para aplicar (re-login recomendado después):
+     AUTO_YES=1 sudo ./scripts/70-konsole-bismuth.sh
+
+Logs y verificación
+- Cada script registra su salida en /var/log (archivo mostrado al inicio de la ejecución). Revisá esos logs si algo falla.
+- Para Konsole/Bismuth: después de ejecutar el script 70 reiniciá sesión y verificá:
+  - System Settings → Window Management → Window Tiling (Bismuth) — que esté habilitado.
+  - Konsole → Settings → Manage Profiles — que exista el perfil "MonokaiPro" y esté seleccionado por defecto.
+
+Reversión y backups
+- Los scripts son conservadores y crean backups visibles cuando modifican archivos de usuario (ej.: ~/.zshrc.pre-fedora-setup, *.bak de configs). Si necesitás revertir, restaurá esos backups manualmente.
+
+Consejos finales
+- Si alguna instalación falla por un repo externo (Brave, RPM Fusion, Negativo17), el script suele avisar y continuar; solucioná el repo y volvé a ejecutar el mismo paso.
+- Si querés que haga un PR formal con estos cambios y una sección de verificación automatizada en CI, decímelo.
 ---
 
 ## Step‑by‑step details
