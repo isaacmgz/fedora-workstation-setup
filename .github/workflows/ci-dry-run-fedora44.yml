@@ -1,0 +1,46 @@
+name: CI - Dry-run on Fedora 44
+
+on:
+  push:
+    branches: [ main, 'pr/*', '**' ]
+  pull_request: {}
+
+concurrency:
+  group: ci-dry-run-fedora44
+  cancel-in-progress: true
+
+jobs:
+  dry-run-fedora:
+    name: Dry-run on Fedora:44 container
+    runs-on: ubuntu-latest
+    container:
+      image: docker://fedora:44
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: |
+          chmod +x ci/run-dry-checks.sh || true
+          chmod +x scripts/*.sh || true
+
+      - name: Bash syntax check
+        run: bash -n scripts/*.sh
+
+      - name: Run CI dry checks script (capture output)
+        env:
+          DRY_RUN: 1
+          SKIP_ROOT_CHECK: 1
+          SKIP_OS_RELEASE: 1
+          AUTO_YES: 1
+        run: |
+          ./ci/run-dry-checks.sh 2>&1 | tee ci/run-dry-checks.log
+
+      - name: Upload CI dry-run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-dry-run-logs
+          path: |
+            ci/run-dry-checks.log
