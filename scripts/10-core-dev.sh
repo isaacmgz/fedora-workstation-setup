@@ -27,8 +27,9 @@ check_os() {
     sleep 5
   fi
 
-  if [[ "${VERSION_ID:-}" != "43" ]]; then
-    echo "Warning: This script was written for Fedora 43, but VERSION_ID='${VERSION_ID:-unknown}'."
+  # Support Fedora 43 and 44 releases
+  if ! [[ "${VERSION_ID:-}" =~ ^(43|44)$ ]]; then
+    echo "Warning: This script was written for Fedora 43/44, but VERSION_ID='${VERSION_ID:-unknown}'."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
@@ -64,8 +65,10 @@ install_cli_tools() {
   # Ensure the copr plugin is available first
   dnf install -y dnf-plugins-core || { echo "Failed to install dnf-plugins-core"; return 1; }
 
-  # Enable COPR that provides eza (non-interactive)
-  dnf -y copr enable alternateved/eza || true
+  # eza upstream COPR changed owners sometimes; attempt enabling, but ignore errors.
+  if ! dnf -y copr enable alternateved/eza >/dev/null 2>&1; then
+    echo "Warning: failed to enable COPR alternateved/eza; eza may not be available via COPR." 
+  fi
 
   # Install packages (one dnf invocation; no accidental line breaks)
   dnf install -y \
@@ -81,7 +84,7 @@ install_cli_tools() {
     thefuck \
     bat \
     tldr \
-    eza
+    eza || echo "Note: eza may not be available; consider installing via COPR or dnf if desired."
 }
 
 post_summary() {

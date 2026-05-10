@@ -27,8 +27,9 @@ check_os() {
     sleep 5
   fi
 
-  if [[ "${VERSION_ID:-}" != "43" ]]; then
-    echo "Warning: This script was written for Fedora 43, but VERSION_ID='${VERSION_ID:-unknown}'."
+  # Support Fedora 43 and 44 releases
+  if ! [[ "${VERSION_ID:-}" =~ ^(43|44)$ ]]; then
+    echo "Warning: This script was written for Fedora 43/44, but VERSION_ID='${VERSION_ID:-unknown}'."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
@@ -57,7 +58,17 @@ install_podman_stack() {
   dnf install -y \
     podman \
     podman-docker \
-    docker-compose
+    docker-compose || true
+
+  # Fedora now provides podman and docker-compose packages; if docker-compose isn't
+  # available (older package name), try python3-docker-compose from pip as fallback.
+  if ! command -v docker-compose >/dev/null 2>&1; then
+    echo "docker-compose not found after dnf install; attempting python -m pip install docker-compose..."
+    python3 -m pip install --user docker-compose || true
+    if command -v ~/.local/bin/docker-compose >/dev/null 2>&1; then
+      echo "Installed docker-compose to ~/.local/bin (user)."
+    fi
+  fi
 
   # Optional: enable podman system service for Docker-compatible workflows.[web:88][web:92]
   if systemctl list-unit-files | grep -q podman.service; then
@@ -160,4 +171,3 @@ main() {
 }
 
 main "$@"
-

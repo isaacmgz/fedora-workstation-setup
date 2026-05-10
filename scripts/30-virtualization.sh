@@ -27,8 +27,9 @@ check_os() {
     sleep 5
   fi
 
-  if [[ "${VERSION_ID:-}" != "43" ]]; then
-    echo "Warning: This script was written for Fedora 43, but VERSION_ID='${VERSION_ID:-unknown}'."
+  # Support Fedora 43 and 44 releases
+  if ! [[ "${VERSION_ID:-}" =~ ^(43|44)$ ]]; then
+    echo "Warning: This script was written for Fedora 43/44, but VERSION_ID='${VERSION_ID:-unknown}'."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
@@ -74,7 +75,13 @@ install_virtualization_packages() {
     libvirt-devel \
     virt-top \
     libguestfs-tools \
-    guestfs-tools
+    guestfs-tools || true
+
+  # guestfs-tools may not be packaged under that name on all Fedora variants;
+  # ensure the essential libguestfs binary is present, otherwise warn.
+  if ! command -v virt-install >/dev/null 2>&1; then
+    echo "Warning: virt-install not found after dnf install; some virtualization features may be missing."
+  fi
 
   echo
   echo "Enabling and starting libvirtd service..."
@@ -193,4 +200,3 @@ main() {
 }
 
 main "$@"
-
