@@ -340,3 +340,9 @@ For the Agnoster theme and glyph‑heavy prompt:
   - Additional apps in `40-desktop-apps.sh`.
 
 Feel free to open issues or PRs with improvements, bug fixes, or support for newer Fedora releases.
+
+---
+
+Nota de PR: se agregó esta línea para forzar la creación de una Pull Request que contiene los scripts y cambios
+relacionados con la configuración de la estación de trabajo (tweaks, Konsole/Bismuth, CI dry-run). Revisa la
+rama `pr/fedora44-workstation-tweaks` para ver los cambios completos antes de fusionar.
