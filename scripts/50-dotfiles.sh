@@ -351,7 +351,9 @@ run() {
   fi
 
   if confirm_block "Create a minimal Neovim config if none exists?"; then
-    setup_minimal_neovim_for_user || true
+    # Try to install the repo-provided Neovim dotfiles first; if absent,
+    # fall back to creating a minimal init.lua.
+    install_repo_neovim_if_present || setup_minimal_neovim_for_user || true
   fi
 
   if confirm_block "Set some safe global Git defaults?"; then
@@ -361,6 +363,45 @@ run() {
   echo
   echo "End time: $(date)"
   post_summary
+}
+
+install_repo_neovim_if_present() {
+  echo "=== Installing Neovim config from repo if available ==="
+
+  local target_user
+  target_user="$(get_target_user)"
+
+  if [[ -z "$target_user" ]]; then
+    echo "Cannot determine target user (SUDO_USER is empty or root)."
+    return 1
+  fi
+
+  sudo -u "$target_user" REPO_ROOT="$REPO_ROOT" DOTFILES_SYMLINK="${DOTFILES_SYMLINK:-}" bash -c '
+set -euo pipefail
+
+REPO_NVIM_DIR="${REPO_ROOT}/dotfiles/nvim"
+NVIM_CONFIG_DIR="${HOME}/.config/nvim"
+
+if [[ -d "${REPO_NVIM_DIR}" ]]; then
+  if [[ -e "${NVIM_CONFIG_DIR}" ]]; then
+    echo "Neovim config ${NVIM_CONFIG_DIR} already exists; skipping."
+    exit 0
+  fi
+
+  mkdir -p "$(dirname "${NVIM_CONFIG_DIR}")"
+  if [[ -n "${DOTFILES_SYMLINK:-}" ]]; then
+    ln -s "${REPO_NVIM_DIR}" "${NVIM_CONFIG_DIR}"
+    echo "Symlinked ${NVIM_CONFIG_DIR} -> ${REPO_NVIM_DIR}"
+  else
+    cp -a "${REPO_NVIM_DIR}" "${NVIM_CONFIG_DIR}"
+    echo "Copied Neovim dotfiles from ${REPO_NVIM_DIR} to ${NVIM_CONFIG_DIR}"
+  fi
+
+  exit 0
+fi
+
+exit 1
+'
 }
 
 main() {
