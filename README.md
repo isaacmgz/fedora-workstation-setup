@@ -36,6 +36,29 @@ scripts/
 ci/
 - run-dry-checks.sh          — valida sintaxis y ejecuta dry-run de los tweaks
 
+Neovim (configuración incluida)
+--------------------------------
+
+Este repositorio incluye una configuración de Neovim completa en dotfiles/nvim/ junto con
+un README específico (README_Neovim.md). Para usarla podés:
+
+- Copiar los archivos al directorio de configuración de Neovim del usuario:
+
+    cp -a /ruta/al/repo/dotfiles/nvim ~/.config/nvim
+
+- O crear un symlink (recomendado durante desarrollo):
+
+    ln -s /ruta/al/repo/dotfiles/nvim ~/.config/nvim
+
+El instalador scripts/50-dotfiles.sh intentará detectar y *copiar* la carpeta dotfiles/nvim
+del repositorio al ejecutarla. Si preferís que haga un *symlink*, exportá la variable
+DOTFILES_SYMLINK=1 antes de ejecutar el script con sudo (el script hará la operación
+en el contexto del usuario objetivo y saltará si ~/.config/nvim ya existe):
+
+    DOTFILES_SYMLINK=1 sudo ./scripts/50-dotfiles.sh
+
+Para detalles sobre la configuración (plugins, atajos y requisitos) consultá README_Neovim.md.
+
 Cómo usar esta guía (resumen)
 -----------------------------
 
