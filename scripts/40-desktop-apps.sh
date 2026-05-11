@@ -27,9 +27,9 @@ check_os() {
     sleep 5
   fi
 
-  # Support Fedora 43 and 44 releases
-  if ! [[ "${VERSION_ID:-}" =~ ^(43|44)$ ]]; then
-    echo "Warning: This script was written for Fedora 43/44, but VERSION_ID='${VERSION_ID:-unknown}'."
+  # Support Fedora 43 and 44+ releases
+  if ! [[ "${VERSION_ID:-}" =~ ^(43|44|45|46)$ ]]; then
+    echo "Warning: This script was written for Fedora 43+, but VERSION_ID='${VERSION_ID:-unknown}'."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
@@ -82,7 +82,7 @@ install_brave_nightly() {
 install_dropbox() {
   echo "=== Installing Dropbox client (via RPM Fusion nonfree) ==="
 
-  # Enable RPM Fusion free + nonfree so nautilus-dropbox is available.[web:176]
+  # Enable RPM Fusion free + nonfree so nautilus-dropbox is available.
   dnf install -y \
     "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
     "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" || true
@@ -104,7 +104,7 @@ install_spotify() {
 
   dnf install -y dnf-plugins-core || true
 
-  # Add Negativo17 Spotify repo if not present.[web:114]
+  # Add Negativo17 Spotify repo if not present.
   if [[ -f /etc/yum.repos.d/fedora-spotify.repo ]]; then
     echo "Spotify repo already present; skipping addrepo."
   else
@@ -144,24 +144,34 @@ LOCAL_BIN_DIR="${HOME}/.local/bin"
 
 mkdir -p "${TOOLBOX_BIN_DIR}" "${LOCAL_BIN_DIR}"
 
-curl -sL "$(curl -s "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=${RELEASE_TYPE}" \
-  | jq -r ".TBA[0].downloads.linux.link")" \
-  | tar xzvf - \
-      --directory="${TOOLBOX_BIN_DIR}" \
-      --strip-components=2
+# Fetch download URL with better error handling
+echo "Fetching JetBrains Toolbox download URL..."
+DOWNLOAD_URL=$(curl -s --retry 3 "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=${RELEASE_TYPE}" | jq -r ".TBA[0].downloads.linux.link" 2>/dev/null || echo "")
+
+if [[ -z "$DOWNLOAD_URL" || "$DOWNLOAD_URL" == "null" ]]; then
+  echo "ERROR: Failed to fetch JetBrains Toolbox download URL"
+  echo "Try downloading manually from: https://www.jetbrains.com/toolbox/app/"
+  exit 1
+fi
+
+echo "Downloading from: $DOWNLOAD_URL"
+curl -fL --retry 3 "$DOWNLOAD_URL" | tar xzvf - \
+    --directory="${TOOLBOX_BIN_DIR}" \
+    --strip-components=2
 
 ln -sf "${TOOLBOX_BIN_DIR}/jetbrains-toolbox" "${LOCAL_BIN_DIR}/jetbrains-toolbox"
 
 echo
 echo "JetBrains Toolbox installed for user ${USER}."
 echo "Make sure ${LOCAL_BIN_DIR} is in your PATH."
+echo "You can run: ~/.local/bin/jetbrains-toolbox"
 '
 }
 
 install_lotion_for_user() {
   echo "=== Installing Lotion (Notion for Linux) (latest RPM release) ==="
 
-  # Lotion is distributed as .rpm packages under GitHub Releases; we fetch latest via API.[web:119][web:202]
+  # Lotion is distributed as .rpm packages under GitHub Releases; we fetch latest via API.
   dnf install -y jq curl || true
 
   local api_url="https://api.github.com/repos/puneetsl/lotion/releases/latest"
@@ -169,7 +179,7 @@ install_lotion_for_user() {
 
   echo "Querying GitHub for latest Lotion release..."
   rpm_url="$(
-    curl -fsSL "$api_url" \
+    curl -fsSL --retry 3 "$api_url" \
       | jq -r ".assets[] | select(.name | endswith(\".x86_64.rpm\")) | .browser_download_url" || true
   )"
 
@@ -184,8 +194,8 @@ install_lotion_for_user() {
   tmp_dir="$(mktemp -d)"
   rpm_path="${tmp_dir}/${rpm_name}"
 
-  echo "Downloading ${rpm_name} from ${rpm_url} ..."
-  curl -fL "$rpm_url" -o "$rpm_path"
+  echo "Downloading ${rpm_name} from GitHub..."
+  curl -fL --retry 3 "$rpm_url" -o "$rpm_path"
 
   echo "Installing ${rpm_name} via dnf..."
   dnf install -y "$rpm_path"
@@ -254,4 +264,3 @@ main() {
 }
 
 main "$@"
-
